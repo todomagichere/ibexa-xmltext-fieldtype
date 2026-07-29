@@ -1,39 +1,31 @@
 <?php
-
 /**
- * @copyright Copyright (C) eZ Systems AS. All rights reserved.
  * @license For full copyright and license information view LICENSE file distributed with this source code.
  */
 namespace EzSystems\EzPlatformXmlTextFieldTypeBundle\Command;
 
-use Doctrine\DBAL\FetchMode;
 use DOMDocument;
-use ErrorException;
-use eZ\Publish\API\Repository\Repository;
-use eZ\Publish\Core\FieldType\XmlText\Converter\RichText as RichTextConverter;
-use eZ\Publish\Core\FieldType\XmlText\Persistence\Legacy\ContentModelGateway as Gateway;
-use eZ\Publish\Core\FieldType\XmlText\Value;
+use PDO;
 use Psr\Log\LoggerInterface;
-use Psr\Log\LogLevel;
-use Symfony\Component\Console\Command\Command;
+use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Exception\RuntimeException;
-use Symfony\Component\Console\Helper\ProgressBar;
-use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Console\Helper\ProgressBar;
+use eZ\Publish\Core\FieldType\XmlText\Value;
+use eZ\Publish\Core\FieldType\XmlText\Converter\RichText as RichTextConverter;
+use eZ\Publish\Core\FieldType\XmlText\Persistence\Legacy\ContentModelGateway as Gateway;
+use Symfony\Component\Debug\Exception\ContextErrorException;
 use Symfony\Component\Process\PhpExecutableFinder;
-use Symfony\Component\Process\Process;
+use Symfony\Component\Process\ProcessBuilder;
+use Psr\Log\LogLevel;
 
-class ConvertXmlTextToRichTextCommand extends Command
+class ConvertXmlTextToRichTextCommand extends ContainerAwareCommand
 {
     const MAX_OBJECTS_PER_CHILD = 1000;
     const DEFAULT_REPOSITORY_USER = 'admin';
-
-    /**
-     * @var \eZ\Publish\API\Repository\Repository
-     */
-    private $repository;
 
     /**
      * @var \eZ\Publish\Core\FieldType\XmlText\Persistence\Legacy\ContentModelGateway
@@ -99,11 +91,10 @@ class ConvertXmlTextToRichTextCommand extends Command
      */
     protected $kernelCacheDir;
 
-    public function __construct(Repository $repository, Gateway $gateway, RichTextConverter $converter, $kernelCacheDir, LoggerInterface $logger)
+    public function __construct(Gateway $gateway, RichTextConverter $converter, $kernelCacheDir, LoggerInterface $logger)
     {
         parent::__construct();
 
-        $this->repository = $repository;
         $this->gateway = $gateway;
         $this->converter = $converter;
         $this->kernelCacheDir = $kernelCacheDir;
@@ -114,6 +105,7 @@ class ConvertXmlTextToRichTextCommand extends Command
     protected function configure()
     {
         $this
+            ->setName('ezxmltext:convert-to-richtext')
             ->setDescription(<<< EOT
 Converts XmlText fields from eZ Publish Platform to RichText fields.
 
@@ -220,7 +212,7 @@ EOT
             $output->writeln('Fixing embedded images only. No other changes are done to the database' . PHP_EOL);
             $this->fixEmbeddedImages($dryRun, $testContentId, $output);
 
-            return 0;
+            return;
         }
 
         if ($testContentId === null) {
@@ -229,14 +221,12 @@ EOT
             $dryRun = true;
             $this->convertFields($dryRun, $testContentId, !$input->getOption('disable-duplicate-id-check'), !$input->getOption('disable-id-value-check'), null, null);
 
-            return 0;
+            return;
         }
 
         $this->processFields($dryRun, !$input->getOption('disable-duplicate-id-check'), !$input->getOption('disable-id-value-check'), $output);
         $this->reportCustomTags($input, $output);
         $this->removeCustomTagLog();
-
-        return 0;
     }
 
     protected function baseExecute(InputInterface $input, OutputInterface $output, &$dryRun)
@@ -387,7 +377,7 @@ EOT
 
         $statement = $query->execute();
 
-        $columns = $statement->fetchAll(FetchMode::ASSOCIATIVE);
+        $columns = $statement->fetchAll(PDO::FETCH_ASSOC);
         $result = [];
         foreach ($columns as $column) {
             $result[$column['identifier']] = $column['id'];
@@ -398,8 +388,9 @@ EOT
 
     protected function login()
     {
-        $userService = $this->repository->getUserService();
-        $permissionResolver = $this->repository->getPermissionResolver();
+        $userService = $this->getContainer()->get('ezpublish.api.service.user');
+        $repository = $this->getContainer()->get('ezpublish.api.repository');
+        $permissionResolver = $repository->getPermissionResolver();
         $permissionResolver->setCurrentUserReference($userService->loadUserByLogin($this->userLogin));
     }
 
@@ -416,7 +407,7 @@ EOT
             $limit = self::MAX_OBJECTS_PER_CHILD;
 
             $statement = $this->gateway->getFieldRows('ezrichtext', $contentId, $offset, $limit);
-            while ($row = $statement->fetch(FetchMode::ASSOCIATIVE)) {
+            while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
                 if (empty($row['data_text'])) {
                     $inputValue = Value::EMPTY_VALUE;
                 } else {
@@ -546,8 +537,6 @@ EOT
             array_unshift($arguments, '-d');
         }
 
-        array_unshift($arguments, $this->getPhpPath());
-
         if ($dryRun) {
             $arguments[] = '--dry-run';
         }
@@ -568,11 +557,13 @@ EOT
             $arguments[] = '-vvv';
         }
 
-        $process = new Process($arguments);
+        $process = new ProcessBuilder($arguments);
         $process->setTimeout(null);
-        $process->start();
+        $process->setPrefix($this->getPhpPath());
+        $p = $process->getProcess();
+        $p->start();
 
-        return $process;
+        return $p;
     }
 
     private function getPhpPath()
@@ -583,7 +574,9 @@ EOT
         $phpFinder = new PhpExecutableFinder();
         $this->phpPath = $phpFinder->find();
         if (!$this->phpPath) {
-            throw new \RuntimeException('The php executable could not be found, it\'s needed for executing parable sub processes, so add it to your PATH environment variable and try again');
+            throw new \RuntimeException(
+                'The php executable could not be found, it\'s needed for executing parable sub processes, so add it to your PATH environment variable and try again'
+            );
         }
 
         return $this->phpPath;
@@ -613,11 +606,20 @@ EOT
                 }
             }
 
-            // write ezxmltext dump
+            // write ezxmltext dump modified by todomagichere
             if ($filterMatch) {
-                $xmlDoc = $this->createDocument($dataText);
-                $xmlDoc->formatOutput = true;
-                file_put_contents("$filename.xml", $xmlDoc->saveXML());
+                try {
+                    $xmlDoc = $this->createDocument($dataText);
+                    $xmlDoc->formatOutput = true;
+                    file_put_contents("$filename.xml", $xmlDoc->saveXML());
+                } catch (RuntimeException $e) {
+                    $this->logger->info(
+                        $e->getMessage(),
+                        [
+                            'original' => $dataText,
+                        ]
+                    );
+                }
             }
         }
     }
@@ -625,7 +627,7 @@ EOT
     protected function convertFields($dryRun, $contentId, $checkDuplicateIds, $checkIdValues, $offset, $limit)
     {
         $statement = $this->gateway->getFieldRows(['ezxmltext', 'ezrichtext'], $contentId, $offset, $limit);
-        while ($row = $statement->fetch(FetchMode::ASSOCIATIVE)) {
+        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
             if ($row['data_type_string'] === 'ezrichtext') {
                 continue;
             }
@@ -645,18 +647,21 @@ EOT
                     ]
                 );
             }
-            $converted = $this->converter->convert($xmlDoc, $checkDuplicateIds, $checkIdValues, $row['id']);
-            $this->dumpOnErrors($this->converter->getErrors(), $row['data_text'], $row['contentobject_id'], $row['id'], $row['version'], $row['language_code']);
+            if ($xmlDoc ?? false) { // xheras
+                $converted = $this->converter->convert($xmlDoc, $checkDuplicateIds, $checkIdValues, $row['id']);
+                $this->dumpOnErrors($this->converter->getErrors(), $row['data_text'], $row['contentobject_id'], $row['id'], $row['version'], $row['language_code']);
 
-            $this->updateFieldRow($dryRun, $row['id'], $row['version'], $converted);
+                $this->updateFieldRow($dryRun, $row['id'], $row['version'], $converted);
 
-            $this->logger->info(
-                "Converted ezxmltext field #{$row['id']} to richtext",
-                [
-                    'original' => $inputValue,
-                    'converted' => $converted,
-                ]
-            );
+                $this->logger->info(
+                    "Converted ezxmltext field #{$row['id']} to richtext",
+                    [
+                        'original' => $inputValue,
+                        'converted' => $converted,
+                    ]
+                );
+            } // xheras block
+
         }
         $this->writeCustomTagLog();
     }
@@ -733,13 +738,13 @@ EOT
         $document->preserveWhiteSpace = false;
         $document->formatOutput = false;
 
-        // In dev mode, symfony may throw \ErrorException
+        // In dev mode, symfony may throw Symfony\Component\Debug\Exception\ContextErrorException
         try {
             $result = $document->loadXml($xmlString);
             if ($result === false) {
                 throw new RuntimeException('Unable to parse ezxmltext. Invalid XML format');
             }
-        } catch (ErrorException $e) {
+        } catch (ContextErrorException $e) {
             throw new RuntimeException($e->getMessage(), $e->getCode());
         }
 
