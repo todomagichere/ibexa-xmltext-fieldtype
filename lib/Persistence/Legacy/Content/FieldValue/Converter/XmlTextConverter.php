@@ -51,8 +51,13 @@ class XmlTextConverter implements Converter
      */
     public function toStorageFieldDefinition(FieldDefinition $fieldDefinition, StorageFieldDefinition $storageDefinition)
     {
-        $storageDefinition->dataInt1 = $fieldDefinition->fieldTypeConstraints->fieldSettings['numRows'];
-        $storageDefinition->dataText2 = $fieldDefinition->fieldTypeConstraints->fieldSettings['tagPreset'];
+        if (isset($fieldDefinition->fieldTypeConstraints->fieldSettings['numRows'])) {
+            $storageDefinition->dataInt1 = $fieldDefinition->fieldTypeConstraints->fieldSettings['numRows'];
+        }
+
+        if (isset($fieldDefinition->fieldTypeConstraints->fieldSettings['tagPreset'])) {
+            $storageDefinition->dataText2 = $fieldDefinition->fieldTypeConstraints->fieldSettings['tagPreset'];
+        }
 
         if (!empty($fieldDefinition->defaultValue->data)) {
             $storageDefinition->dataText1 = $fieldDefinition->defaultValue->data;
