@@ -53,7 +53,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-ibexa-3.3": "2.0.x-dev"
+            "dev-ibexa-3.x": "2.0.x-dev"
         }
     }
 }

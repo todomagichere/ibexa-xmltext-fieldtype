@@ -8,7 +8,7 @@ This is the XmlText field type for Ibexa Platform 3.x, based on the original [ez
 ### Branches
 
 - `master` (3.x): compatible with Ibexa OSS / DXP 4.x
-- `ibexa-3.3` (2.x): compatible with Ibexa Platform (eZ Platform) 3.x
+- `ibexa-3.x` (2.x): compatible with Ibexa Platform (eZ Platform) 3.x
 
 ### Support limitations
 
@@ -20,7 +20,7 @@ This bundle is **only** supported for the purpose of migrating content from XmlT
 Run the following:
 
 ```
-composer require --update-with-all-dependencies "netgen/ibexa-xmltext-fieldtype:dev-ibexa-3.3"
+composer require --update-with-all-dependencies "netgen/ibexa-xmltext-fieldtype:dev-ibexa-3.x"
 ```
 
 And lastly enable the bundle by adding `EzSystems\EzPlatformXmlTextFieldTypeBundle\EzSystemsEzPlatformXmlTextFieldTypeBundle::class => ['all' => true],` to `config/bundles.php`.
