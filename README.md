@@ -1,14 +1,14 @@
-# XmlText field type for Ibexa Platform 3.3
+# XmlText field type for Ibexa Platform 3.x
 
 [![License](https://img.shields.io/github/license/netgen/ibexa-xmltext-fieldtype.svg?style=flat-square)](LICENSE)
 
-This is the XmlText field type for Ibexa Platform 3.3, based on the original [ezsystems/ezplatform-xmltext-fieldtype](https://github.com/ezsystems/ezplatform-xmltext-fieldtype). It was extracted from the eZ Publish / Platform 5.x as it has been suceeded by docbook based [RichText](https://github.com/ezsystems/ezplatform-richtext) field type.
+This is the XmlText field type for Ibexa Platform 3.x, based on the original [ezsystems/ezplatform-xmltext-fieldtype](https://github.com/ezsystems/ezplatform-xmltext-fieldtype). It was extracted from the eZ Publish / Platform 5.x as it has been suceeded by docbook based [RichText](https://github.com/ezsystems/ezplatform-richtext) field type.
 
 
 ### Branches
 
 - `master` (3.x): compatible with Ibexa OSS / DXP 4.x
-- `ibexa-3.3` (2.x): compatible with Ibexa Platform (eZ Platform) 3.3
+- `ibexa-3.3` (2.x): compatible with Ibexa Platform (eZ Platform) 3.x
 
 ### Support limitations
 
