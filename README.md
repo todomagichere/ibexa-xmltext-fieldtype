@@ -25,6 +25,27 @@ composer require --update-with-all-dependencies "netgen/ibexa-xmltext-fieldtype:
 
 And lastly enable the bundle by adding `EzSystems\EzPlatformXmlTextFieldTypeBundle\EzSystemsEzPlatformXmlTextFieldTypeBundle::class => ['all' => true],` to `config/bundles.php`.
 
+### Installing as a VCS repository
+
+This fork is not published on Packagist, so Composer needs to be told where to find it. Add a `vcs` repository pointing to this fork in your project's `composer.json`:
+
+```json
+{
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/todomagichere/ibexa-xmltext-fieldtype"
+        }
+    ]
+}
+```
+
+Then require the package as usual:
+
+```
+composer require --update-with-all-dependencies "netgen/ibexa-xmltext-fieldtype:dev-ibexa-3.x"
+```
+
 ----
 
 _Once you have migrated your content you can remove the bundle from both `config/bundles.php` and `composer.json`._
